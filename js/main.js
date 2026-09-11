@@ -4071,9 +4071,9 @@ function showHardEndingModal() {
   modalSub.textContent = "최종 병기 건담을 파괴하고 진정한 우주의 영웅이 되었습니다!";
   modalScore.innerHTML = `최종 점수: ${score}점<br><span style="font-size:13px;color:#facc15;">"한계를 초월한 무한 전장으로의 길이 열렸습니다!"</span>`;
   
-  rewardTitle.textContent = "🌌 [무한 모드 인가 프로토콜]";
-  rewardCode.textContent = "infinite";
-  rewardDesc.textContent = "시작 화면 우측 상단 구석을 터치하여 코드를 입력하면 무한 모드가 해금됩니다!";
+  rewardTitle.textContent = "🌌 [무한·보스 러시 모드 인가 프로토콜]";
+  rewardCode.textContent = "infinite / bossrush";
+  rewardDesc.textContent = "각 코드를 입력하면 무한 모드와 보스 러시 모드가 해금됩니다!";
   codeRewardArea.style.display = "block";
   restartBtn.textContent = "시작 화면으로";
   resultModal.style.display = "flex";

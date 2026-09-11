@@ -337,6 +337,14 @@ const BossRush = {
     modalTitle.textContent = 'BOSS RUSH · 작전 종료';
     modalSub.textContent = this.floor > this.startBest ? 'NEW RECORD' : '다음 등반에 도전하세요.';
     modalScore.innerHTML = `REACHED FLOOR: ${this.floor}<br>최고 기록: ${this.best} · 처치 보스: ${this.defeated}<br>CYCLE ${this.cycleFor(this.floor)}`;
+    if (this.defeated >= 6) {
+      rewardTitle.textContent = '🎉 [시작 무장 설정 프로토콜]';
+      rewardCode.textContent = 'roadout';
+      rewardDesc.textContent = '시작 화면 우측 상단 구석을 터치하여 코드를 입력하면 시작 무장 설정이 해금됩니다!';
+      codeRewardArea.style.display = 'block';
+    } else {
+      codeRewardArea.style.display = 'none';
+    }
     document.getElementById('rush-retry').style.display = 'block';
     restartBtn.textContent = '시작 화면으로';
   },
