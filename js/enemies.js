@@ -7,6 +7,7 @@ let timeSinceElite = 0;
 let queuedElites = 0;
 
 const baseHpTable = [0, 1, 1, 2, 3, 5, 7, 10, 14, 19, 26];
+const HARD_BASIC_ENEMY_SPEED_MULTIPLIER = 0.85;
 
 // Shared eligibility registry; spawnElite retains each type's existing AI factory.
 const ELITE_TYPES = [
@@ -102,7 +103,8 @@ function spawnEnemy() {
   if (isLeader) hp = hp * 2;
 
   const r = (Math.min(12, 7.5 + Math.floor(hp / 6)) + (isLeader ? 2.5 : 0)) * scale;
-  const speed = (0.95 + Math.random() * 0.55 + (currentPhase * 0.03) + p10 * 0.12) * scale;
+  const modeSpeedMultiplier = gameMode === 'hard' ? HARD_BASIC_ENEMY_SPEED_MULTIPLIER : 1;
+  const speed = (0.95 + Math.random() * 0.55 + (currentPhase * 0.03) + p10 * 0.12) * scale * modeSpeedMultiplier;
 
   enemies.push({
     x: pos.x,

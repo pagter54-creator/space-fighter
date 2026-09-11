@@ -98,6 +98,7 @@ let enemyTimer = 0;
 let obsTimer = 0;
 let itemTimer = 0;
 let hardItemSegmentIndex = 0;
+let hardItemDropCount = 0;
 let secScoreTimer = 0;
 let droneShootTimer = 0;
 let weaponAnimTime = 0;
@@ -661,10 +662,10 @@ function getItemInterval() {
   return currentPhase >= 4 ? base * 2 : base;
 }
 
-// 하드 모드의 첫 밸런스 공급표: 보스전이 없는 순수 진행 기준으로 12분간 53회다.
-// 보스전 중에는 기존처럼 아이템 타이머가 20% 속도로 진행되어 전투 중 과공급을 막는다.
+// 하드 모드의 기존 시간대별 공급표다. 첫 8개만 아래의 오프닝 간격을 우선 사용하며,
+// 이후에는 이 표의 현재 시간대 간격으로 복귀한다. 보스전 중 타이머는 20% 속도로 진행된다.
 const HARD_ITEM_INTERVALS = [
-  { until: 120, interval: 15 }, // 0~2분: 8회
+  { until: 120, interval: 15 }, // 0~2분 기본값(첫 8개 가속 종료 후 사용)
   { until: 180, interval: 12 }, // 2~3분: 5회
   { until: 300, interval: 15 }, // 3~5분: 8회
   { until: 420, interval: 15 }, // 5~7분: 8회
@@ -673,6 +674,8 @@ const HARD_ITEM_INTERVALS = [
   { until: 660, interval: 12 }, // 10~11분: 5회
   { until: 720, interval: 10 }  // 11~12분: 6회
 ];
+const HARD_OPENING_ITEM_COUNT = 8;
+const HARD_OPENING_ITEM_INTERVAL = 12;
 
 function getHardItemSegmentIndex(time = gameTime) {
   const index = HARD_ITEM_INTERVALS.findIndex(entry => time < entry.until);
@@ -680,6 +683,7 @@ function getHardItemSegmentIndex(time = gameTime) {
 }
 
 function getHardItemInterval(time = gameTime) {
+  if (hardItemDropCount < HARD_OPENING_ITEM_COUNT) return HARD_OPENING_ITEM_INTERVAL;
   return HARD_ITEM_INTERVALS[getHardItemSegmentIndex(time)].interval;
 }
 
@@ -688,7 +692,7 @@ function advanceHardItemTimer(dt, isBossFight) {
   // 구간 경계 계산은 하지 않는다.
   if (isBossFight) {
     itemTimer += dt * 0.2;
-    const interval = HARD_ITEM_INTERVALS[hardItemSegmentIndex].interval;
+    const interval = getHardItemInterval();
     if (itemTimer + 1e-8 >= interval) {
       spawnItem();
       itemTimer = 0;
@@ -717,7 +721,7 @@ function advanceHardItemTimer(dt, isBossFight) {
     }
 
     itemTimer += slice;
-    const interval = HARD_ITEM_INTERVALS[hardItemSegmentIndex].interval;
+    const interval = getHardItemInterval(segmentTime);
     if (itemTimer + 1e-8 >= interval) {
       spawnItem();
       itemTimer = 0;
@@ -1116,6 +1120,7 @@ function spawnItem() {
     radius: 8.5 * scale,
     ...itemData
   });
+  if (gameMode === 'hard') hardItemDropCount++;
 }
 
 function triggerGundamEnding() {
@@ -2112,7 +2117,7 @@ function update(dt) {
         const omniDmgMults = [1.0, 1.0, 0.9, 0.9, 0.8, 0.8, 0.7, 0.6];
         // 방사형은 탄환 수 10에서 Lv.8 기준 40발이 되지 않도록 별도 안전 상한을 둔다.
         const finalCount = Math.min(30, Math.max(1, Math.ceil(player.baseBulletCount * omniCountMults[player.weaponLevel - 1])));
-        const finalDmg = Math.max(0.01, roundDamage(player.baseDamage * omniDmgMults[player.weaponLevel - 1]));
+        const finalDmg = Math.max(1, roundDamage(player.baseDamage * omniDmgMults[player.weaponLevel - 1]));
 
         const step = (Math.PI * 2) / finalCount;
         for (let i = 0; i < finalCount; i++) {
@@ -2134,7 +2139,7 @@ function update(dt) {
 
       } else if (player.weaponType === 'drone') {
         Sound.playShoot('drone');
-        const finalDmg = Math.max(0.01, roundDamage(player.baseDamage * 0.8));
+        const finalDmg = Math.max(1, roundDamage(player.baseDamage * 0.8));
         const finalCount = Math.max(1, Math.ceil(player.baseBulletCount * 0.5));
         firePlayerBullets(finalCount, finalDmg, WEAPON_META.drone.color, 3 * scale);
         player.shootCooldown = baseCooldown / 1.0;
@@ -2165,7 +2170,7 @@ function update(dt) {
 
     if (player.weaponType === 'drone') {
       const droneCount = player.weaponLevel;
-      const droneDmg = Math.max(0.01, roundDamage(player.baseDamage * 0.8));
+      const droneDmg = Math.max(1, roundDamage(player.baseDamage * 0.8));
       const droneCooldown = (baseCooldown / 1.0) / 0.5;
 
       droneShootTimer += dt;
@@ -4194,6 +4199,7 @@ function resetGameData() {
   obsTimer = 0;
   itemTimer = 0;
   hardItemSegmentIndex = 0;
+  hardItemDropCount = 0;
   droneShootTimer = 0;
   blackHoleShootTimer = 0;
   weaponAnimTime = 0;
