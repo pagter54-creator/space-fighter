@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>지구 방위 작전</title>
+  
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="지구 방위 작전">
+  <meta property="og:description" content="외계 함대의 침공으로부터 살아남아 최고 기록을 세워보세요!">
+  <meta property="og:image" content="https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?w=800">
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div id="game-container">
+    <div id="ui-layer" style="display: none;">
+      <div class="hud-row">
+        <div>
+          <span id="hp-display" class="hud-hp">♥♥♥♥♥</span>
+          <span id="shield-display" class="hud-shield"></span>
+        </div>
+        <div class="hud-timer">
+          <span id="mode-badge" style="display:none; margin-right:4px;"></span>생존: <span id="time-display">00:00</span>
+        </div>
+        <div style="display: flex; align-items: center;">
+          <span class="hud-score">점수: <span id="score-display">0</span></span>
+          <!-- 음소거 버튼 위치에 일시정지 버튼 배치 -->
+          <button id="pause-btn" title="일시정지 (Esc)">⏸️</button>
+        </div>
+      </div>
+
+      <!-- 보스 전용 상단 체력바 -->
+      <div id="boss-bar-container">
+        <div id="boss-name">BOSS</div>
+        <div id="boss-hp-track">
+          <div id="boss-hp-fill"></div>
+        </div>
+      </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- 시작 화면 -->
+    <div id="start-screen" class="screen-overlay">
+      <!-- 좌측 상단 음량 조절 패널 -->
+      <div class="volume-panel">
+        <div class="vol-control">
+          <label for="bgm-vol">🎵 BGM</label>
+          <input type="range" id="bgm-vol" min="0" max="100" value="20">
+          <span id="bgm-vol-val">20%</span>
+        </div>
+        <div class="vol-control">
+          <label for="sfx-vol">💥 SFX</label>
+          <input type="range" id="sfx-vol" min="0" max="100" value="25">
+          <span id="sfx-vol-val">25%</span>
+        </div>
+      </div>
+
+      <!-- 우측 상단 투명 비밀 트리거 -->
+      <div id="secret-trigger" title="Secret Area"></div>
+
+      <h1>지구 방위 작전</h1>
+      <p style="color: #94a3b8; font-size: clamp(12px, 1.8vh, 15px);">외계 함대의 침공을 막고 지구를 구원하세요!</p>
+      
+      <div id="start-guide" class="guide-box">
+        <div class="guide-item">🕹️ <b>조작</b>: 모바일 가상 조이스틱 / PC 클릭 이동·WASD·방향키 (J 키: 조이스틱 전환, Esc: 일시정지)</div>
+        <div class="guide-item">🛡️ <b>보호막</b>: 체력 5칸 상태에서 회복템 획득 시 최대 2겹 충전 (페이즈 4부터 4겹)</div>
+        <div class="guide-item">🔷 <b>특수 무장</b>: 사각형 큐브로 형태 및 공격 방식 진화 (최대 8Lv)</div>
+        <div class="guide-item">⚠️ <b>엘리트 적</b>: 2페이즈부터 출현 (처치 시 30% 확률 무장 룰렛 코어 드랍)</div>
+        <div class="guide-item" style="color: #facc15;">🏆 <b>일반 작전 목표</b>: 5분 도달 시 출현하는 미니 보스를 격파하세요!</div>
+      </div>
+
+      <div id="loadout-selector" class="loadout-selector" style="display:none;">
+        <div class="loadout-title">⚡ 출격 무장 선택</div>
+        <div class="loadout-subtitle">좌우 화살표로 기본 무장과 특수 무장을 순환 선택합니다.</div>
+        <div class="loadout-picker">
+          <button class="loadout-arrow" id="loadout-prev" aria-label="이전 무장">◀</button>
+          <div class="loadout-preview-card">
+            <canvas id="loadout-preview-canvas" width="150" height="150"></canvas>
+            <div id="loadout-name" class="loadout-name">기본 무장</div>
+            <div id="loadout-level" class="loadout-level">Lv.1로 시작</div>
+            <div id="loadout-description" class="loadout-description">기본 탄환을 발사합니다.</div>
+          </div>
+          <button class="loadout-arrow" id="loadout-next" aria-label="다음 무장">▶</button>
+        </div>
+        <div id="loadout-selected" class="loadout-selected">선택: 기본 무장</div>
+      </div>
+
+      <div class="start-actions">
+        <button class="btn" id="start-btn">일반 작전 개시</button>
+        <button class="btn btn-hard" id="hard-btn">하드 모드 개시 (Hard)</button>
+        <button class="btn btn-infinite" id="infinite-btn">무한 모드 개시 (Infinite)</button>
+        <button class="btn" id="bossrush-btn" style="display:none;background:#0891b2;color:white;">BOSS RUSH</button>
+
+        <!-- 제작자 전용 보스전 단독 버튼 (최하단) -->
+        <button class="btn btn-boss-test btn-miniboss" id="test-miniboss-btn">미니 보스전 (Practice)</button>
+        <button class="btn btn-boss-test btn-laserboss" id="test-laserboss-btn">레이저 보스전 (Practice)</button>
+        <button class="btn btn-boss-test btn-finalboss" id="test-finalboss-btn">건담 보스전 (Practice)</button>
+        <button class="btn btn-boss-test btn-warshipboss" id="test-warshipboss-btn">전함 보스전 (Practice)</button>
+        <button class="btn btn-boss-test btn-chronosboss" id="test-chronosboss-btn">CHRONOS 보스전 (Practice)</button>
+        <button class="btn btn-boss-test btn-arsenalboss" id="test-arsenalboss-btn">ARSENAL FRAME 보스전 (Practice)</button>
+      </div>
+
+      <div class="version-tag">Ver 1.8.0</div>
+    </div>
+
+    <div id="rush-modal" class="screen-overlay" role="dialog" aria-modal="true" aria-labelledby="rush-title" style="display:none;">
+      <div class="rush-panel">
+        <h2 id="rush-title">BOSS RUSH</h2>
+        <p id="rush-subtitle"></p>
+        <div id="rush-cards"></div>
+        <button id="rush-menu" class="admin-btn">등반 종료 · 시작 화면</button>
+      </div>
+    </div>
+
+    <!-- 일시정지 화면 모달 -->
+    <div id="pause-modal" class="screen-overlay" style="display: none; z-index: 55;">
+      <h2>⏸️ 작전 일시 정지</h2>
+      
+      <div class="pause-stat-box">
+        <div class="pause-stat-title">📊 기체 성능 정보</div>
+        <div class="pause-stat-grid">
+          <div class="pause-stat-item">공격력: <span id="pause-stat-dmg">1.0</span></div>
+          <div class="pause-stat-item">연사 레벨: <span id="pause-stat-spd">Lv.1</span></div>
+          <div class="pause-stat-item">탄환 수: <span id="pause-stat-count">1</span></div>
+          <div class="pause-stat-item">장착 무장: <span id="pause-stat-weapon">기본 (Lv.1)</span></div>
+        </div>
+      </div>
+
+      <div class="pause-vol-box">
+        <div class="vol-control">
+          <label for="pause-bgm-vol">🎵 BGM</label>
+          <input type="range" id="pause-bgm-vol" min="0" max="100" value="20">
+          <span id="pause-bgm-vol-val">20%</span>
+        </div>
+        <div class="vol-control">
+          <label for="pause-sfx-vol">💥 SFX</label>
+          <input type="range" id="pause-sfx-vol" min="0" max="100" value="25">
+          <span id="pause-sfx-vol-val">25%</span>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 12px; margin-top: 14px;">
+        <button class="btn" id="resume-btn">게임 재개 (Esc)</button>
+        <button class="btn" id="pause-quit-btn" style="background: #475569; box-shadow: none; color: #fff;">작전 중단</button>
+      </div>
+    </div>
+
+    <!-- 결과 / 엔딩 모달 -->
+    <div id="result-modal" class="screen-overlay" style="display: none;">
+      <h1 id="modal-title">작전 실패</h1>
+      <p id="modal-sub" style="color: #94a3b8; margin-bottom: 8px; font-size: clamp(12px, 1.8vh, 15px);">격추되었습니다.</p>
+      <div style="font-size: clamp(16px, 2.5vh, 22px); color: #38bdf8; font-weight: bold; margin-bottom: 12px;" id="modal-score">0점</div>
+      
+      <div id="code-reward-area" class="reward-box" style="display: none;">
+        <div style="font-size: 13px; color: #facc15; font-weight: bold; margin-bottom: 4px;" id="reward-title">🎉 [프로토콜 잠금 해제]</div>
+        <div style="font-size: 20px; font-weight: 900; letter-spacing: 2px;">특수 코드: <span id="reward-code" style="color:#facc15;">gundam</span></div>
+        <div style="font-size: 12px; color: #94a3b8; margin-top: 4px;" id="reward-desc">시작 화면 우측 상단 구석을 터치하여 코드를 입력하세요!</div>
+      </div>
+
+      <button class="btn" id="restart-btn">시작 화면으로</button>
+      <button class="btn" id="rush-retry" style="display:none;">BOSS RUSH 재도전</button>
+    </div>
+
+    <!-- 관리자 패널 (Practice 모드 전용, T 키 토글) -->
+    <div id="admin-panel">
+      <div class="admin-header">
+        <span>🛠️ 관리자 모드 (T 키로 닫기 · 시간 정지 중)</span>
+        <button class="admin-btn admin-close" id="admin-close-btn">닫기</button>
+      </div>
+      <div class="admin-body">
+        <div class="admin-section" id="rush-debug" style="display:none;">
+          <div class="admin-title">BOSS RUSH 테스트</div>
+          <pre id="rush-debug-info"></pre>
+          <label>Floor <input id="rush-debug-floor" type="number" min="1" max="999" value="1" style="width:70px;"></label>
+          <select id="rush-debug-boss" aria-label="테스트 보스">
+            <option value="">Floor 등급 랜덤</option>
+            <option value="mini">LOW · UFO</option><option value="laser">LOW · Prism</option>
+            <option value="elitegroup">LOW · ELITE GROUP</option>
+            <option value="final">MID · Gundam</option><option value="phantom">MID · Phantom</option><option value="arsenal">MID · Arsenal</option>
+            <option value="warship">FINAL · Warship</option><option value="chronos">FINAL · Chronos</option>
+          </select>
+          <button id="rush-debug-go" class="admin-btn">Floor / 보스 적용</button>
+          <button id="rush-debug-reward" class="admin-btn">보상 화면</button>
+        </div>
+        <div class="admin-section">
+          <div class="admin-title">스탯</div>
+          <div id="admin-stats" class="admin-grid"></div>
+        </div>
+        <div class="admin-section">
+          <div class="admin-title">무장 장착</div>
+          <div class="admin-row">
+            <button class="admin-btn" data-equip="default">기본</button>
+            <button class="admin-btn" data-equip="omni">방사형</button>
+            <button class="admin-btn" data-equip="laser">레이저</button>
+            <button class="admin-btn" data-equip="drone">드론</button>
+            <button class="admin-btn" data-equip="pulse">펄스</button>
+            <button class="admin-btn" data-equip="blackhole">블랙홀</button>
+            <button class="admin-btn" data-equip="flame">화염</button>
+            <button class="admin-btn" data-equip="lightning">번개 칼날</button>
+          </div>
+        </div>
+        <div class="admin-section">
+          <div class="admin-title">아이템 소환</div>
+          <div class="admin-row">
+            <button class="admin-btn" data-item="heal">HP+</button>
+            <button class="admin-btn" data-item="dmg">DMG</button>
+            <button class="admin-btn" data-item="count">WAY</button>
+            <button class="admin-btn" data-item="spd">SPD</button>
+            <button class="admin-btn" data-item="bomb">BOMB</button>
+            <button class="admin-btn" data-item="lvup">LvUp 코어</button>
+            <button class="admin-btn" data-item="roulette">룰렛 코어</button>
+          </div>
+        </div>
+        <div class="admin-section">
+          <div class="admin-title">엘리트 소환</div>
+          <div class="admin-row">
+            <button class="admin-btn" data-elite="1">분열 거체</button>
+            <button class="admin-btn" data-elite="2">포탑 요새</button>
+            <button class="admin-btn" data-elite="3">돌진 파쇄체</button>
+            <button class="admin-btn" data-elite="4">쌍벽둥이</button>
+          </div>
+        </div>
+        <div class="admin-section">
+          <div class="admin-title">보스</div>
+          <div class="admin-row">
+            <button class="admin-btn" data-boss="mini">UFO 미니보스 소환</button>
+            <button class="admin-btn" data-boss="laser">레이저 보스 소환</button>
+            <button class="admin-btn" data-boss="gundam">건담 보스 소환</button>
+            <button class="admin-btn" data-boss="phantom">팬텀 미들 보스 소환</button>
+            <button class="admin-btn" data-boss="warship">전함 보스 소환</button>
+            <button class="admin-btn" data-boss="chronos">CHRONOS 최종보스 소환</button>
+            <button class="admin-btn" data-boss="arsenal">ARSENAL FRAME 소환</button>
+            <button class="admin-btn admin-danger" id="admin-boss-delete">보스 삭제</button>
+          </div>
+        </div>
+        <div class="admin-section">
+          <div class="admin-title">CHRONOS 테스트</div>
+          <div class="admin-row">
+            <button class="admin-btn" data-chronos-action="phase2">Phase 2 전환</button>
+            <button class="admin-btn" data-chronos-action="phase3">Phase 3 전환</button>
+            <button class="admin-btn" data-chronos-action="ultimate">END OF TIME</button>
+            <button class="admin-btn" data-chronos-action="damage">HP -10%</button>
+          </div>
+        </div>
+        <div class="admin-section">
+          <div class="admin-title">ARSENAL FRAME 테스트</div>
+          <div class="admin-row">
+            <button class="admin-btn" data-arsenal-action="shield-laser">RED Shield</button>
+            <button class="admin-btn" data-arsenal-action="shield-pulse">BLUE Shield</button>
+            <button class="admin-btn" data-arsenal-action="shield-blackhole">PURPLE Shield</button>
+            <button class="admin-btn" data-arsenal-action="shield-flame">ORANGE Shield</button>
+            <button class="admin-btn" data-arsenal-action="weapon-fabricator">FABRICATOR</button>
+            <button class="admin-btn" data-arsenal-action="weapon-duelist">DUELIST</button>
+            <button class="admin-btn" data-arsenal-action="weapon-disruptor">DISRUPTOR</button>
+            <button class="admin-btn" data-arsenal-action="weapon-breaker">BREAKER</button>
+            <button class="admin-btn" data-arsenal-action="shift">ADAPTIVE SHIFT</button>
+            <button class="admin-btn" data-arsenal-action="overload">ARSENAL OVERLOAD</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 특수 코드 입력 모달 -->
+    <div id="secret-modal" class="screen-overlay" style="display: none; z-index: 70;">
+      <h2 style="color: #38bdf8; margin-bottom: 8px;">비밀 프로토콜</h2>
+      <p style="font-size: 13px; color: #94a3b8; margin-bottom: 14px;">특수 코드를 입력하십시오.</p>
+      <input type="text" id="secret-input" placeholder="코드 입력" autocomplete="off" style="padding: 10px 14px; border-radius: 8px; border: 1px solid #38bdf8; background: #0f172a; color: #fff; font-size: 16px; text-align: center; margin-bottom: 16px; width: 220px; outline: none;" />
+      <div style="display: flex; gap: 10px;">
+        <button class="btn" id="secret-submit-btn" style="padding: 10px 22px; font-size: 14px;">확인</button>
+        <button class="btn" id="secret-close-btn" style="padding: 10px 22px; font-size: 14px; background: #475569; box-shadow: none;">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/sound.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/enemies.js"></script>
+  <script src="js/boss.js"></script>
+  <script src="js/bossrush.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
