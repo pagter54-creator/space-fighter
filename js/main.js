@@ -2255,18 +2255,32 @@ function update(dt) {
             for (const t of BossManager.getPlayerTargetables().filter(t => t.shipPart)) {
               applyToPoint(t.x, t.y, t.radius || 0, () => {
                 for (let n = 0; n < ticks; n++) {
-                  const ignition = applyFlameIgnition(t, flameBaseDamage, t.x, t.y);
-                  BossManager.takeDamage(ignition.damage, t, ignition.isMax ? WEAPON_META.flame.color : '#ffffff', { x: player.x, y: player.y }, 'flame');
+                  const part = t.shipPart;
+                  if (!part || !part.alive) break;
+                  const ignition = applyFlameIgnition(part, flameBaseDamage, t.x, t.y);
+                  BossManager.takeDamage(ignition.damage, part, ignition.isMax ? WEAPON_META.flame.color : '#ffffff', { x: player.x, y: player.y }, 'flame');
                 }
               });
             }
           } else if (BossManager.bossType === 'laser') {
+            const laserBoss = BossManager.activeBoss;
             for (const pr of BossManager.getVulnerablePrisms()) {
               applyToPoint(pr.x, pr.y, pr.r || 0, () => {
                 for (let n = 0; n < ticks; n++) {
                   const ignition = applyFlameIgnition(pr.prism, flameBaseDamage, pr.x, pr.y);
                   BossManager.damagePrism(pr.prism, ignition.damage, ignition.isMax ? WEAPON_META.flame.color : '#ffffff');
                   if (!pr.prism.alive) break;
+                }
+              });
+            }
+            // 수정의 피격 가능 여부와 별개로 레이저 보스 본체도 화염 공격 대상이다.
+            // 본체가 먼저 파괴되어 수정 처리 도중 상태가 초기화되는 일을 피하려고 마지막에 판정한다.
+            if (BossManager.activeBoss === laserBoss) {
+              applyToPoint(laserBoss.x, laserBoss.y, laserBoss.radius || 0, () => {
+                for (let n = 0; n < ticks; n++) {
+                  if (BossManager.activeBoss !== laserBoss) break;
+                  const ignition = applyFlameIgnition(laserBoss, flameBaseDamage, laserBoss.x, laserBoss.y);
+                  BossManager.takeDamage(ignition.damage, null, ignition.isMax ? WEAPON_META.flame.color : '#ffffff', { x: player.x, y: player.y }, 'flame');
                 }
               });
             }
