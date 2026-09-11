@@ -899,6 +899,8 @@ function getPulseAuraRadius() {
 
 const PULSE_DAMAGE_MULTIPLIER = 2.5;
 const PULSE_AURA_TICK_INTERVAL = 0.15;
+const PULSE_PROJECTILE_SPEED = 12.0;
+const PULSE_HOMING_HALF_ANGLE = Math.PI / 6;
 
 function triggerPulseExplosion(cx, cy) {
   Sound.playExplosion(true);
@@ -2396,7 +2398,7 @@ function update(dt) {
         Sound.playExplosion(false);
         showFloatingText("PULSE EXPLOSION!", player.x, player.y - 20 * scale, '#00d2d3');
 
-        const bulletCount = player.weaponLevel;
+        const bulletCount = Math.max(1, Math.min(10, Math.floor(player.baseBulletCount)));
         const step = (Math.PI * 2) / bulletCount;
         const stormDmg = Math.max(0.01, roundDamage(player.baseDamage * PULSE_DAMAGE_MULTIPLIER));
 
@@ -2405,14 +2407,15 @@ function update(dt) {
           bullets.push({
             x: player.x,
             y: player.y,
-            vx: Math.cos(a) * 13.0 * scale,
-            vy: Math.sin(a) * 13.0 * scale,
+            vx: Math.cos(a) * PULSE_PROJECTILE_SPEED * scale,
+            vy: Math.sin(a) * PULSE_PROJECTILE_SPEED * scale,
             radius: 8.5 * scale,
             color: '#00d2d3',
             damage: stormDmg,
             isPulseStorm: true,
             // 펄스 폭발탄은 진행 방향 기준 좌우 30도 안의 대상에만 약하게 유도된다.
             pulseHoming: true,
+            pulseLaunchAngle: a,
             weaponKind: 'pulse',
             hitCooldowns: new Map()
           });
@@ -2746,6 +2749,7 @@ function update(dt) {
     // 적만 아주 약하게 따라가므로, 방사형 회피·착탄 성격은 유지된다.
     if (b.isPulseStorm && b.pulseHoming) {
       const heading = Math.atan2(b.vy, b.vx);
+      const launchAngle = b.pulseLaunchAngle ?? heading;
       const candidates = [...enemies];
       if (BossManager.activeBoss) {
         if (BossManager.bossType === 'warship') candidates.push(...BossManager.getPlayerTargetables().filter(entry => entry.shipPart));
@@ -2759,16 +2763,21 @@ function update(dt) {
         const dy = candidate.y - b.y;
         const distance = Math.hypot(dx, dy);
         if (distance >= nearest || distance < 0.001) continue;
-        let difference = Math.atan2(dy, dx) - heading;
+        let difference = Math.atan2(dy, dx) - launchAngle;
         while (difference < -Math.PI) difference += Math.PI * 2;
         while (difference > Math.PI) difference -= Math.PI * 2;
-        if (Math.abs(difference) <= Math.PI / 6) { target = candidate; nearest = distance; }
+        if (Math.abs(difference) <= PULSE_HOMING_HALF_ANGLE) { target = candidate; nearest = distance; }
       }
       if (target) {
         let difference = Math.atan2(target.y - b.y, target.x - b.x) - heading;
         while (difference < -Math.PI) difference += Math.PI * 2;
         while (difference > Math.PI) difference -= Math.PI * 2;
-        const angle = heading + difference * 0.045;
+        let angle = heading + difference * 0.045;
+        let launchDifference = angle - launchAngle;
+        while (launchDifference < -Math.PI) launchDifference += Math.PI * 2;
+        while (launchDifference > Math.PI) launchDifference -= Math.PI * 2;
+        launchDifference = Math.max(-PULSE_HOMING_HALF_ANGLE, Math.min(PULSE_HOMING_HALF_ANGLE, launchDifference));
+        angle = launchAngle + launchDifference;
         const speed = Math.hypot(b.vx, b.vy);
         b.vx = Math.cos(angle) * speed;
         b.vy = Math.sin(angle) * speed;
