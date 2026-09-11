@@ -138,6 +138,25 @@ const BossManager = {
     gundam: ['final', 'phantom', 'arsenal'],
     final: ['warship', 'chronos']
   },
+  HARD_MODE_HP_MULTIPLIER: 1.5,
+
+  applyHardModeHpMultiplier() {
+    const boss = this.activeBoss;
+    if (gameMode !== 'hard' || !boss || boss.hardModeHpScaled) return;
+
+    if (boss.parts) {
+      for (const part of Object.values(boss.parts)) {
+        part.maxHp = Math.max(1, Math.round(part.maxHp * this.HARD_MODE_HP_MULTIPLIER));
+        part.hp = part.maxHp;
+      }
+      boss.maxHp = Object.values(boss.parts).reduce((sum, part) => sum + part.maxHp, 0);
+      boss.hp = boss.maxHp;
+    } else {
+      boss.maxHp = Math.max(1, Math.round(boss.maxHp * this.HARD_MODE_HP_MULTIPLIER));
+      boss.hp = boss.maxHp;
+    }
+    boss.hardModeHpScaled = true;
+  },
 
   spawnFromTier(tier) {
     const candidates = this.hardBossTiers[tier];
@@ -155,6 +174,7 @@ const BossManager = {
     else if (type === 'warship') this.spawnWarshipBoss();
     else if (type === 'chronos') this.spawnChronosBoss();
     else if (type === 'arsenal') this.spawnArsenalBoss();
+    this.applyHardModeHpMultiplier();
   },
 
   clearFieldOnBossSpawn() {

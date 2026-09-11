@@ -30,7 +30,6 @@ const player = {
 
   pulseChargeTimer: 0,
   pulseTickTimer: 0,
-  pulseDisableTimer: 0,
   blackHoleShootTimer: 0,
   lightningBladeTimer: 0,
   lightningThrowTimer: 0

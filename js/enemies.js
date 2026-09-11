@@ -7,7 +7,7 @@ let timeSinceElite = 0;
 let queuedElites = 0;
 
 const baseHpTable = [0, 1, 1, 2, 3, 5, 7, 10, 14, 19, 26];
-const HARD_BASIC_ENEMY_SPEED_MULTIPLIER = 0.85;
+const HARD_BASIC_ENEMY_SPEED_MULTIPLIER = 0.80;
 
 // Shared eligibility registry; spawnElite retains each type's existing AI factory.
 const ELITE_TYPES = [
@@ -22,15 +22,14 @@ function calculatePhase(t) {
   // 보스전 중에는 gameTime이 멈추므로, 보스 처치 속도와 무관하게 전투 구간의
   // 성장/난이도 진행은 이 표에 맞춰 유지된다.
   if (gameMode === 'hard') {
-    if (t < 60) return 2;
-    if (t < 120) return 3;
-    if (t < 180) return 4;
-    if (t < 300) return 5;
-    if (t < 420) return 6;
-    if (t < 480) return 7;
+    if (t < 120) return 2;
+    if (t < 240) return 3;
+    if (t < 360) return 4;
+    if (t < 420) return 5;
+    if (t < 480) return 6;
+    if (t < 600) return 7;
     if (t < 660) return 8;
-    if (t < 720) return 9;
-    return 10;
+    return 9;
   }
 
   if (t < 60) return 1;
@@ -305,7 +304,9 @@ function handleEnemyDeath(e, index) {
           lifeTime: 60.0
         });
         showFloatingText("룰렛 무장 코어 출현! (1분)", e.x, e.y - 15 * scale, '#ffd32a');
-      } else if (roll < 0.40) {
+      // 하드 모드에서는 엘리트 처치 보상의 회복 확률만 10%에서 20%로 높인다.
+      // 룰렛 코어의 기존 30% 확률과 다른 모드의 드롭률은 유지한다.
+      } else if (roll < (gameMode === 'hard' ? 0.50 : 0.40)) {
         items.push({
           x: e.x,
           y: e.y,

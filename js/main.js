@@ -897,10 +897,6 @@ function getPulseAuraRadius() {
   return (35 + player.weaponLevel * 9) * scale;
 }
 
-function getPulseDisableDuration() {
-  return 1.0 - (player.weaponLevel - 1) * (0.8 / 7);
-}
-
 const PULSE_DAMAGE_MULTIPLIER = 2.5;
 const PULSE_AURA_TICK_INTERVAL = 0.15;
 
@@ -930,7 +926,6 @@ function resetWeaponRuntimeState() {
   player.laserTimer = 0;
   player.isLaserFiring = false;
   player.pulseChargeTimer = 0;
-  player.pulseDisableTimer = 0;
   blackHoleShootTimer = 0;
   flameTickTimer = 0;
   player.lightningBladeTimer = 0;
@@ -970,16 +965,17 @@ function fireBlackHole() {
   const angle = player.angle;
   const damage = player.baseDamage * 0.9;
   const radius = getBlackHoleRadius();
+  const travelSpeed = 4.06 * scale * 0.8;
   blackHoleShootTimer = 0;
   Sound.playShoot('blackhole');
   bullets.push({
     x: player.x,
     y: player.y,
-    vx: Math.cos(angle) * 4.06 * scale,
-    vy: Math.sin(angle) * 4.06 * scale,
+    vx: Math.cos(angle) * travelSpeed,
+    vy: Math.sin(angle) * travelSpeed,
     // 블랙홀은 발사 직후 플레이어가 범위 안에 있으므로
     // 플레이어가 주변부에서 완전히 벗어나기 전까지 흡입을 활성화하지 않는다.
-    baseSpeed: 4.06 * scale * 0.7,
+    baseSpeed: travelSpeed * 0.7,
     radius: radius,
     coreRadius: getBlackHoleCoreRadius(),
     color: WEAPON_META.blackhole.color,
@@ -2150,14 +2146,14 @@ function update(dt) {
         // 블랙홀 무장도 기본 탄환을 계속 발사하고, 별도의 주기로 블랙홀을 추가 발사한다.
         Sound.playShoot('blackhole');
         firePlayerBullets(player.baseBulletCount, player.baseDamage, WEAPON_META.blackhole.color, 3 * scale);
-        player.shootCooldown = baseCooldown / 0.6;
+        player.shootCooldown = baseCooldown / 1.0;
       } else if (player.weaponType === 'flame') {
         // 화염은 별도의 지속 부채꼴 장판형 공격이므로 기본 탄환을 만들지 않는다.
         player.shootCooldown = baseCooldown;
       } else if (player.weaponType === 'lightning') {
-        // 번개 칼날의 연사 배율은 0.4배를 사용한다.
+        // 번개 칼날의 연사 배율은 0.5배를 사용한다.
         fireLightningBlade();
-        player.shootCooldown = baseCooldown / 0.4;
+        player.shootCooldown = baseCooldown / 0.5;
       }
     }
 
@@ -2199,7 +2195,7 @@ function update(dt) {
       const convertedAttack = player.baseDamage
         + player.baseBulletCount * bulletConversion
         + player.speedLevel * speedConversion;
-      const flameBaseDamage = Math.max(0.5, roundDamage(convertedAttack * 0.05));
+      const flameBaseDamage = Math.max(0.5, roundDamage(convertedAttack * 0.1));
 
       flameTickTimer += dt;
       if (flameTickTimer >= 0.08) {
@@ -2332,19 +2328,15 @@ function update(dt) {
     }
 
     if (player.weaponType === 'pulse') {
-      const isPulseDisabled = player.pulseDisableTimer > 0;
-      if (isPulseDisabled) {
-        player.pulseDisableTimer -= dt;
-      } else {
-        player.pulseChargeTimer += dt;
-        player.pulseTickTimer += dt;
-      }
+      // 폭발 후 재충전 대기 없이 충전 영역과 틱 피해를 항상 유지한다.
+      player.pulseChargeTimer += dt;
+      player.pulseTickTimer += dt;
 
       const chargeDuration = Math.max(1.0, 3.0 * Math.pow(0.86, player.speedLevel - 1));
       const auraRadius = getPulseAuraRadius();
       const auraTickDmg = Math.max(0.5, roundDamage(player.baseDamage * 0.25));
 
-      if (!isPulseDisabled && player.pulseTickTimer >= PULSE_AURA_TICK_INTERVAL) {
+      if (player.pulseTickTimer >= PULSE_AURA_TICK_INTERVAL) {
         player.pulseTickTimer = 0;
         for (let e of enemies) {
           if (Math.hypot(player.x - e.x, player.y - e.y) < auraRadius + e.radius) {
@@ -2398,10 +2390,9 @@ function update(dt) {
         }
       }
 
-      if (!isPulseDisabled && player.pulseChargeTimer >= chargeDuration) {
+      if (player.pulseChargeTimer >= chargeDuration) {
         player.pulseChargeTimer = 0;
         player.pulseTickTimer = 0;
-        player.pulseDisableTimer = getPulseDisableDuration();
         Sound.playExplosion(false);
         showFloatingText("PULSE EXPLOSION!", player.x, player.y - 20 * scale, '#00d2d3');
 
@@ -3666,17 +3657,14 @@ function draw() {
     const auraRadius = getPulseAuraRadius();
     const chargeDuration = Math.max(1.0, 3.0 * Math.pow(0.86, player.speedLevel - 1));
     const chargeProgress = Math.min(1.0, player.pulseChargeTimer / chargeDuration);
-    const isPulseDisabled = player.pulseDisableTimer > 0;
 
-    if (!isPulseDisabled) {
-      ctx.strokeStyle = `rgba(0, 210, 211, ${0.12 + chargeProgress * 0.15})`;
-      ctx.lineWidth = (8 + chargeProgress * 4) * scale;
-      ctx.beginPath();
-      ctx.arc(player.x, player.y, auraRadius, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-    ctx.strokeStyle = isPulseDisabled ? 'rgba(120, 140, 140, 0.35)' : `rgba(0, 210, 211, ${0.4 + chargeProgress * 0.45})`;
-    ctx.lineWidth = (isPulseDisabled ? 1.5 : (2 + chargeProgress * 2)) * scale;
+    ctx.strokeStyle = `rgba(0, 210, 211, ${0.12 + chargeProgress * 0.15})`;
+    ctx.lineWidth = (8 + chargeProgress * 4) * scale;
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, auraRadius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = `rgba(0, 210, 211, ${0.4 + chargeProgress * 0.45})`;
+    ctx.lineWidth = (2 + chargeProgress * 2) * scale;
     ctx.setLineDash([8 * scale, 6 * scale]);
     ctx.lineDashOffset = -weaponAnimTime * 62 * scale;
     ctx.beginPath();
@@ -3686,7 +3674,7 @@ function draw() {
     // 충전 진행을 따라 네 개의 시간차 핀이 실제로 공전하도록 표시한다.
     ctx.setLineDash([]);
     const orbitAngle = weaponAnimTime * (2.2 + chargeProgress * 2.8);
-    ctx.strokeStyle = isPulseDisabled ? 'rgba(148, 163, 184, 0.28)' : `rgba(165, 243, 252, ${0.42 + chargeProgress * 0.42})`;
+    ctx.strokeStyle = `rgba(165, 243, 252, ${0.42 + chargeProgress * 0.42})`;
     ctx.lineWidth = 2 * scale;
     for (let i = 0; i < 4; i++) {
       const a = orbitAngle + i * Math.PI / 2;
@@ -3695,7 +3683,7 @@ function draw() {
       ctx.stroke();
     }
 
-    ctx.fillStyle = isPulseDisabled ? 'rgba(120, 140, 140, 0.03)' : `rgba(0, 210, 211, ${0.06 + chargeProgress * 0.1})`;
+    ctx.fillStyle = `rgba(0, 210, 211, ${0.06 + chargeProgress * 0.1})`;
     ctx.beginPath();
     ctx.arc(player.x, player.y, auraRadius, 0, Math.PI * 2);
     ctx.fill();
@@ -4258,7 +4246,6 @@ function resetGameData() {
   player.isLaserFiring = false;
   player.pulseChargeTimer = 0;
   player.pulseTickTimer = 0;
-  player.pulseDisableTimer = 0;
   player.blackHoleShootTimer = 0;
   player.lightningBladeTimer = 0;
   player.lightningThrowTimer = 0;
@@ -4494,7 +4481,6 @@ function adminEquipWeapon(kind) {
   player.laserTimer = 0;
   player.isLaserFiring = false;
   player.pulseChargeTimer = 0;
-  player.pulseDisableTimer = 0;
   player.lightningBladeTimer = 0;
   player.lightningThrowTimer = 0;
   lightningBlades = [];
